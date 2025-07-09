@@ -6,4 +6,5 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  envPrefix: 'VITE_', // Ensure Vite loads .env variables with VITE_ prefix
 });

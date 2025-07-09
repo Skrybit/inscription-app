@@ -8,8 +8,6 @@ import PaymentStatusForm from './components/PaymentStatusForm.jsx';
 import StatsDisplay from './components/StatsDisplay.jsx';
 import Toast from './components/Toast.jsx';
 
-const API_BASE_URL = 'http://localhost:3001';
-
 function App() {
   const [account, setAccount] = useState(null);
   const [error, setError] = useState(null);
@@ -39,12 +37,16 @@ function App() {
     setAccount(null);
     setInscriptions([]);
     setCommitResponse(null);
-    setSuccess('Wallet disconnected successfully! Please clear wallet permissions in UniSat if reconnecting without approval persists.');
+    setSuccess('Wallet disconnected successfully! If reconnecting without approval persists, clear UniSat permissions in the wallet settings or use incognito mode.');
     // Clear all browser storage to reset UniSat session
     try {
       localStorage.clear();
       sessionStorage.clear();
-      console.log('Cleared localStorage and sessionStorage');
+      // Clear cookies
+      document.cookie.split(";").forEach(c => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+      console.log('Cleared localStorage, sessionStorage, and cookies');
       // Force page reload to reset UniSat session
       window.location.reload();
     } catch (e) {
@@ -56,7 +58,7 @@ function App() {
   const fetchInscriptions = async () => {
     if (!account) return;
     try {
-      const response = await axios.get(`${API_BASE_URL}/inscriptions/sender/${account}`);
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/sender/${account}`);
       setInscriptions(response.data);
       setError(null);
     } catch (e) {
@@ -66,7 +68,7 @@ function App() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/inscriptions/stats`);
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/stats`);
       setStats(response.data);
       setError(null);
     } catch (e) {

@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001';
-
 function CreateCommitForm({ senderAddress, setError, setSuccess, fetchInscriptions, setCommitResponse }) {
   const [file, setFile] = useState(null);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [feeRate, setFeeRate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [commitResponse, setLocalCommitResponse] = useState(null); // Store response for display
-  const [paymentLoading, setPaymentLoading] = useState(false); // Track payment status
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [commitResponse, setLocalCommitResponse] = useState(null);
 
-  // Bitcoin address validation (mainnet/testnet)
+  // Bitcoin address validation (permissive)
   const isValidBitcoinAddress = (address) => {
     if (!address || typeof address !== 'string' || address.length < 26 || address.length > 90) return false;
     const regex = /^(bc1q|tb1q|bc1p|tb1p|[13])[a-zA-HJ-NP-Z0-9]{25,90}$/i;
@@ -41,8 +39,8 @@ function CreateCommitForm({ senderAddress, setError, setSuccess, fetchInscriptio
       setError('Please fill all fields and select a file.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB.');
+    if (file.size > 400 * 1024) {
+      setError('File size must be less than 400KB.');
       return;
     }
     if (!isValidFileType(file)) {
@@ -73,11 +71,11 @@ function CreateCommitForm({ senderAddress, setError, setSuccess, fetchInscriptio
     console.log('CreateCommitForm payload:', logFormData(formData));
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/inscriptions/create-commit`, formData, {
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/create-commit`, formData, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'multipart/form-data',
-          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)', // Match Bruno's configuration
+          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)',
           // Add API key if required (e.g., 'Authorization': 'Bearer YOUR_API_KEY')
         },
       });
@@ -135,7 +133,7 @@ function CreateCommitForm({ senderAddress, setError, setSuccess, fetchInscriptio
       <h2 className="text-xl font-semibold text-gray-800 mb-4">Create Commit Transaction</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">File (max 5MB, JPEG/PNG/TXT/PDF)</label>
+          <label className="block text-sm font-medium text-gray-700">File (max 400KB, JPEG/PNG/TXT/PDF)</label>
           <input
             type="file"
             accept="image/jpeg,image/png,text/plain,application/pdf"

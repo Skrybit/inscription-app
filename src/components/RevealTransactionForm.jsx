@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001';
-
 function RevealTransactionForm({ setError, setSuccess, fetchInscriptions }) {
   const [inscriptionId, setInscriptionId] = useState('');
   const [commitTxId, setCommitTxId] = useState('');
@@ -18,14 +16,23 @@ function RevealTransactionForm({ setError, setSuccess, fetchInscriptions }) {
     }
 
     setLoading(true);
+    const payload = {
+      inscription_id: inscriptionId,
+      commit_tx_id: commitTxId,
+      vout,
+      amount,
+    };
+
+    console.log('RevealTransactionForm payload:', payload);
+
     try {
-      const response = await axios.post(`${API_BASE_URL}/inscriptions/create-reveal`, {
-        inscription_id: inscriptionId,
-        commit_tx_id: commitTxId,
-        vout,
-        amount,
-      }, {
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/create-reveal`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)', // Match Bruno's configuration
+          // Add API key if required (e.g., 'Authorization': 'Bearer YOUR_API_KEY')
+        },
       });
       setSuccess('Reveal transaction created! TX Hex: ' + response.data.reveal_tx_hex);
       fetchInscriptions();
@@ -33,8 +40,16 @@ function RevealTransactionForm({ setError, setSuccess, fetchInscriptions }) {
       setCommitTxId('');
       setVout('0');
       setAmount('');
+      console.log('RevealTransactionForm response:', response.data);
     } catch (e) {
-      setError('Failed to create reveal: ' + (e.response?.data?.error || e.message));
+      const errorMessage = e.response?.data?.error || (typeof e.response?.data === 'string' ? 'Server error (HTML response)' : e.message);
+      console.error('RevealTransactionForm error:', {
+        status: e.response?.status,
+        data: e.response?.data,
+        message: e.message,
+        headers: e.response?.headers,
+      });
+      setError('Failed to create reveal: ' + errorMessage);
     } finally {
       setLoading(false);
     }

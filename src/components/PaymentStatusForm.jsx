@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001';
-
 function PaymentStatusForm({ senderAddress, setError, setSuccess, commitResponse }) {
   const [inscriptionId, setInscriptionId] = useState('');
   const [paymentAddress, setPaymentAddress] = useState('');
@@ -60,15 +58,15 @@ function PaymentStatusForm({ senderAddress, setError, setSuccess, commitResponse
     console.log('PaymentStatusForm payload:', payload);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/payments/status`, payload, {
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/payments/status`, payload, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)', // Match Bruno's configuration
+          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)',
           // Add API key if required (e.g., 'Authorization': 'Bearer YOUR_API_KEY')
         },
       });
-      setStatus({ ...payload, ...response.data }); // Preserve inputs and merge response
+      setStatus({ ...payload, ...response.data });
       setSuccess('Payment status retrieved successfully!');
       setError(null);
       console.log('PaymentStatusForm response:', response.data);
@@ -81,7 +79,7 @@ function PaymentStatusForm({ senderAddress, setError, setSuccess, commitResponse
         headers: e.response?.headers,
       });
       setError(`Failed to check payment status: ${errorMessage}. Ensure payment is sent to the address and check server logs.`);
-      setStatus({ ...payload, is_paid: false, error_details: e.response?.data?.error_details || {} }); // Preserve inputs on error
+      setStatus({ ...payload, is_paid: false, error_details: e.response?.data?.error_details || {} });
     } finally {
       setLoading(false);
     }
