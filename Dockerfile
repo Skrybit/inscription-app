@@ -13,8 +13,8 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Copy .env file for VITE_API_BASE_URL
-COPY .env ./
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # Build the Vite app for production
 RUN npm run build
@@ -28,6 +28,8 @@ RUN npm install -g serve
 # Set working directory
 WORKDIR /app
 
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 # Copy the built assets from the builder stage
 COPY --from=builder /app/dist ./dist
 
