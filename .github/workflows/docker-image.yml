@@ -44,16 +44,16 @@ jobs:
       - name: Push Docker image
         run: docker push ${{ env.IMAGE_NAME }}
         
-      - name: Notify Slack
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE_NAME=ghcr.io/${REPO_LOWER}:${{ env.VERSION }}
-          MESSAGE=":tada: Backend-api build completed - Version: $VERSION - Image: \`$IMAGE_NAME\`"
+      # - name: Notify Slack
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #   run: |
+      #     REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+      #     IMAGE_NAME=ghcr.io/${REPO_LOWER}:${{ env.VERSION }}
+      #     MESSAGE=":tada: Backend-api build completed - Version: $VERSION - Image: \`$IMAGE_NAME\`"
 
-          PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text}')
+      #     PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text}')
 
-          curl -X POST -H 'Content-type: application/json' \
-            --data "$PAYLOAD" \
-            "$SLACK_WEBHOOK_URL"
+      #     curl -X POST -H 'Content-type: application/json' \
+      #       --data "$PAYLOAD" \
+      #       "$SLACK_WEBHOOK_URL"
