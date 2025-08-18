@@ -22,7 +22,7 @@ export const API_CONSTANTS = {
     INSCRIPTIONS: {
       CREATE_COMMIT: '/api/inscriptions/create-commit',
       PAYMENT_STATUS: '/api/inscriptions/payment-status',
-      GET_BY_ID: '/api/inscriptions/get-by-id',
+      GET_BY_ID: (id: string) => `/api/inscriptions/${id}`, // Updated to dynamic route
       GET_SENDER: '/api/inscriptions/get-sender',
       CREATE_REVEAL: '/api/inscriptions/create-reveal',
       BROADCAST_REVEAL: '/api/inscriptions/broadcast-reveal',
@@ -33,7 +33,7 @@ export const API_CONSTANTS = {
       SIGNUP: '/api/auth/signup',
       REVOKE_TOKEN: '/api/auth/revoke-token',
       NEW_TOKEN: '/api/auth/new-token',
-      REFRESH_TOKEN: '/api/auth/refresh-token', // Matches file path
+      REFRESH_TOKEN: '/api/auth/refresh-token',
       VERIFY: '/api/auth/verify',
     },
   },

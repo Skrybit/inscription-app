@@ -42,13 +42,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const files = (req as any).files as any[];
     const file = files?.find((f) => f.fieldname === 'file');
 
-    if (!file || !recipient_address || !fee_rate) {
+    if (!file || !recipient_address || !fee_rate || !sender_address) {
       return res.status(400).json({
         message: 'Missing required fields or file',
         details: {
           hasFile: !!file,
           hasRecipientAddress: !!recipient_address,
           hasFeeRate: !!fee_rate,
+          hasSenderAddress: !!sender_address,
           body: req.body,
           files: files ? files.map((f) => ({ fieldname: f.fieldname, originalname: f.originalname })) : null,
         },
@@ -66,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const proxyFormData = new FormData();
     proxyFormData.append('recipient_address', recipient_address);
     proxyFormData.append('fee_rate', fee_rate);
-    if (sender_address) proxyFormData.append('sender_address', sender_address);
+    proxyFormData.append('sender_address', sender_address);
     const fileBlob = new Blob([file.buffer], { type: file.mimetype });
     proxyFormData.append('file', fileBlob, file.originalname);
 
