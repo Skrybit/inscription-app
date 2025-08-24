@@ -6,8 +6,9 @@ import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/table';
-import { Alert, AlertDescription } from '@/src/components/ui/alert';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/src/components/ui/alert-dialog';
 import { Spinner } from '@/src/components/ui/spinner';
+import { toast } from 'sonner';
 
 declare global {
   interface Window {
@@ -24,29 +25,38 @@ export default function InscribePage() {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [feeRate, setFeeRate] = useState('10');
   const [response, setResponse] = useState<any>(null);
-  const [error, setError] = useState<string>('');
   const [stats, setStats] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
-  const [revealResult, setRevealResult] = useState<any>(null);
-  const [broadcastRevealResult, setBroadcastRevealResult] = useState<any>(null);
   const [inscriptionDetails, setInscriptionDetails] = useState<any>(null);
   const [inscriptionIdInput, setInscriptionIdInput] = useState('');
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [walletInscriptions, setWalletInscriptions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingConnect, setIsLoadingConnect] = useState(false);
+  const [isLoadingInscriptions, setIsLoadingInscriptions] = useState(false);
+  const [isLoadingSubmit, setIsLoadingSubmit] = useState(false);
+  const [isLoadingPay, setIsLoadingPay] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [isLoadingPaymentStatus, setIsLoadingPaymentStatus] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [showPaymentStatusDialog, setShowPaymentStatusDialog] = useState(false);
+  const [showInscriptionDetailsDialog, setShowInscriptionDetailsDialog] = useState(false);
+
+  const isAnyLoading = isLoadingConnect || isLoadingInscriptions || isLoadingSubmit || isLoadingPay || isLoadingStats || isLoadingPaymentStatus || isLoadingDetails;
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_AUTH_TOKEN;
     if (token) {
       Cookies.set('authToken', token, {
         sameSite: 'strict',
-        secure: false, // Set to true in production with HTTPS
+        secure: process.env.NODE_ENV === 'production',
       });
     } else {
-      console.error('No AUTH_TOKEN found in environment variables');
-      setError('No AUTH_TOKEN found in environment variables');
+      console.error('No NEXT_PUBLIC_AUTH_TOKEN found in environment variables');
+      toast.error('Error', {
+        description: 'No authentication token found in environment variables.',
+      });
     }
 
     // Load UniSat SDK
@@ -54,6 +64,9 @@ export default function InscribePage() {
     script.src = 'https://unpkg.com/@unisat/wallet-sdk@latest/lib/unisat.min.js';
     script.async = true;
     document.body.appendChild(script);
+
+    // Fetch stats on mount
+    fetchStats();
 
     return () => {
       document.body.removeChild(script);
@@ -65,7 +78,7 @@ export default function InscribePage() {
     if (isPolling && response && walletAddress) {
       interval = setInterval(async () => {
         try {
-          setIsLoading(true);
+          setIsLoadingPaymentStatus(true);
           const res = await apiLocalClient.post(API_CONSTANTS.PROXY.INSCRIPTIONS.PAYMENT_STATUS, {
             payment_address: response.payment_address,
             required_amount_in_sats: response.required_amount_in_sats,
@@ -75,9 +88,9 @@ export default function InscribePage() {
             headers: getAuthHeaders(),
           });
           setPaymentStatus(res.data);
+          setShowPaymentStatusDialog(true);
           if (res.data.is_paid && res.data.status === 'confirmed') {
             setIsPolling(false);
-            setError('');
           }
         } catch (err: any) {
           console.error('Polling payment status error:', {
@@ -85,16 +98,18 @@ export default function InscribePage() {
             data: err.response?.data,
             message: err.message,
           });
-          setError('Error polling payment status: ' + err.message);
+          toast.error('Error', {
+            description: err.response?.data?.message || 'Error polling payment status.',
+          });
           setIsPolling(false);
         } finally {
-          setIsLoading(false);
+          setIsLoadingPaymentStatus(false);
         }
       }, 30000); // Poll every 30 seconds
+      return () => {
+        if (interval) clearInterval(interval);
+      };
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [isPolling, response, walletAddress]);
 
   useEffect(() => {
@@ -110,24 +125,29 @@ export default function InscribePage() {
 
   const connectWallet = async () => {
     try {
-      setIsLoading(true);
+      setIsLoadingConnect(true);
       if (window.unisat) {
         const accounts = await window.unisat.requestAccounts();
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
           setIsWalletConnected(true);
-          setError('');
         } else {
-          setError('No accounts found in UniSat wallet');
+          toast.error('Error', {
+            description: 'No accounts found in UniSat wallet.',
+          });
         }
       } else {
-        setError('UniSat wallet not detected. Please install the UniSat extension.');
+        toast.error('Error', {
+          description: 'UniSat wallet not detected. Please install the UniSat extension.',
+        });
       }
     } catch (err: any) {
       console.error('Wallet connection error:', err);
-      setError('Failed to connect UniSat wallet: ' + err.message);
+      toast.error('Error', {
+        description: 'Failed to connect UniSat wallet: ' + err.message,
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingConnect(false);
     }
   };
 
@@ -135,50 +155,56 @@ export default function InscribePage() {
     setWalletAddress(null);
     setIsWalletConnected(false);
     setWalletInscriptions([]);
-    setError('');
   };
 
   const fetchWalletInscriptions = async () => {
     if (!walletAddress) return;
     try {
-      setIsLoading(true);
+      setIsLoadingInscriptions(true);
       const res = await apiLocalClient.get(API_CONSTANTS.PROXY.INSCRIPTIONS.GET_SENDER(walletAddress), {
         headers: getAuthHeaders(),
       });
+      console.log('Raw get-sender response:', res.data);
       setWalletInscriptions(res.data || []);
-      setError('');
     } catch (err: any) {
       console.error('Fetch wallet inscriptions error:', {
         status: err.response?.status,
         data: err.response?.data,
         message: err.message,
       });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error fetching wallet inscriptions')
-      );
+      toast.error('Error', {
+        description: err.response?.data?.message || 'Error fetching wallet inscriptions.',
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingInscriptions(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !recipientAddress || !feeRate) {
-      setError('All required fields must be filled');
+      toast.error('Error', {
+        description: 'All required fields must be filled.',
+      });
       return;
     }
     if (file.size === 0) {
-      setError('Uploaded file is empty');
+      toast.error('Error', {
+        description: 'Uploaded file is empty.',
+      });
       return;
     }
     if (!isWalletConnected || !walletAddress) {
-      setError('Please connect your UniSat wallet');
+      toast.error('Error', {
+        description: 'Please connect your UniSat wallet.',
+      });
       return;
     }
     const feeRateNum = parseFloat(feeRate);
     if (isNaN(feeRateNum) || feeRateNum <= 0) {
-      setError('Fee rate must be a positive number');
+      toast.error('Error', {
+        description: 'Fee rate must be a positive number.',
+      });
       return;
     }
 
@@ -198,7 +224,7 @@ export default function InscribePage() {
     });
 
     try {
-      setIsLoading(true);
+      setIsLoadingSubmit(true);
       const res = await apiLocalClient.post(API_CONSTANTS.PROXY.INSCRIPTIONS.CREATE_COMMIT, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -206,91 +232,104 @@ export default function InscribePage() {
         },
       });
       setResponse(res.data);
-      setError('');
+      toast.success('Success', {
+        description: 'Inscription commit created successfully.',
+      });
     } catch (err: any) {
       console.error('Frontend error:', {
         status: err.response?.status,
         data: err.response?.data,
         message: err.message,
       });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error creating inscription commit')
-      );
+      toast.error('Error', {
+        description: err.response?.data?.message || 'Error creating inscription commit.',
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingSubmit(false);
     }
   };
 
   const payNow = async () => {
     if (!response) {
-      setError('Create an inscription first');
+      toast.error('Error', {
+        description: 'Create an inscription first.',
+      });
       return;
     }
     if (!isWalletConnected || !walletAddress) {
-      setError('Please connect your UniSat wallet');
+      toast.error('Error', {
+        description: 'Please connect your UniSat wallet.',
+      });
       return;
     }
 
     try {
-      setIsLoading(true);
+      setIsLoadingPay(true);
       const amount = parseInt(response.required_amount_in_sats);
       const toAddress = response.payment_address;
-      const feeRateNum = parseFloat(feeRate);
 
       if (!window.unisat) {
-        setError('UniSat wallet not detected');
+        toast.error('Error', {
+          description: 'UniSat wallet not detected.',
+        });
         return;
       }
 
-      const txid = await window.unisat.sendBitcoin(toAddress, amount, { feeRate: feeRateNum });
+      const txid = await window.unisat.sendBitcoin(toAddress, amount, { feeRate: 30 });
       console.log('Payment sent, txid:', txid);
-      setError('');
       setPaymentStatus({ txid, is_paid: false });
       setIsPolling(true);
+      setShowPaymentStatusDialog(true);
+      toast.success('Success', {
+        description: 'Payment sent successfully. TXID: ' + txid,
+      });
     } catch (err: any) {
       console.error('Payment error:', err);
-      setError('Failed to send payment: ' + err.message);
+      toast.error('Error', {
+        description: 'Failed to send payment: ' + err.message,
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingPay(false);
     }
   };
 
   const fetchStats = async () => {
     try {
-      setIsLoading(true);
+      setIsLoadingStats(true);
       const res = await apiLocalClient.get(API_CONSTANTS.PROXY.INSCRIPTIONS.STATS, {
         headers: getAuthHeaders(),
       });
       setStats(res.data);
-      setError('');
     } catch (err: any) {
       console.error('Stats error:', {
         status: err.response?.status,
         data: err.response?.data,
         message: err.message,
       });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error fetching stats')
-      );
+      toast.error('Error', {
+        description: err.response?.data?.message || 'Error fetching stats.',
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingStats(false);
     }
   };
 
   const checkPaymentStatus = async () => {
     if (!response) {
-      setError('Create an inscription first');
+      toast.error('Error', {
+        description: 'Create an inscription first.',
+      });
       return;
     }
     if (!isWalletConnected || !walletAddress) {
-      setError('Please connect your UniSat wallet');
+      toast.error('Error', {
+        description: 'Please connect your UniSat wallet.',
+      });
       return;
     }
 
     try {
-      setIsLoading(true);
+      setIsLoadingPaymentStatus(true);
       const res = await apiLocalClient.post(API_CONSTANTS.PROXY.INSCRIPTIONS.PAYMENT_STATUS, {
         payment_address: response.payment_address,
         required_amount_in_sats: response.required_amount_in_sats,
@@ -300,7 +339,7 @@ export default function InscribePage() {
         headers: getAuthHeaders(),
       });
       setPaymentStatus(res.data);
-      setError('');
+      setShowPaymentStatusDialog(true);
       if (res.data.is_paid && res.data.status === 'confirmed') {
         setIsPolling(false);
       }
@@ -310,89 +349,30 @@ export default function InscribePage() {
         data: err.response?.data,
         message: err.message,
       });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error checking payment status')
-      );
+      toast.error('Error', {
+        description: err.response?.data?.message || 'Error checking payment status.',
+      });
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const createReveal = async () => {
-    if (!response) {
-      setError('Create an inscription first');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const res = await apiLocalClient.post(API_CONSTANTS.PROXY.INSCRIPTIONS.CREATE_REVEAL, {
-        inscription_id: response.inscription_id,
-      }, {
-        headers: getAuthHeaders(),
-      });
-      setRevealResult(res.data);
-      setError('');
-    } catch (err: any) {
-      console.error('Create reveal error:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
-      });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error creating reveal transaction')
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const broadcastReveal = async () => {
-    if (!revealResult) {
-      setError('Create a reveal transaction first');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const res = await apiLocalClient.post(API_CONSTANTS.PROXY.INSCRIPTIONS.BROADCAST_REVEAL, {
-        reveal_transaction: revealResult.reveal_transaction,
-      }, {
-        headers: getAuthHeaders(),
-      });
-      setBroadcastRevealResult(res.data);
-      setError('');
-    } catch (err: any) {
-      console.error('Broadcast reveal error:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
-      });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error broadcasting reveal transaction')
-      );
-    } finally {
-      setIsLoading(false);
+      setIsLoadingPaymentStatus(false);
     }
   };
 
   const getInscriptionDetails = async () => {
     const id = inscriptionIdInput || (response && response.inscription_id);
     if (!id) {
-      setError('Enter an inscription ID or create an inscription first');
+      toast.error('Error', {
+        description: 'Enter an inscription ID or create an inscription first.',
+      });
       return;
     }
 
     try {
-      setIsLoading(true);
+      setIsLoadingDetails(true);
       const res = await apiLocalClient.get(API_CONSTANTS.PROXY.INSCRIPTIONS.GET_BY_ID(id), {
         headers: getAuthHeaders(),
       });
       setInscriptionDetails(res.data);
-      setError('');
+      setShowInscriptionDetailsDialog(true);
     } catch (err: any) {
       console.error('Get inscription error:', {
         status: err.response?.status,
@@ -400,320 +380,296 @@ export default function InscribePage() {
         headers: err.response?.headers,
         message: err.message,
       });
-      setError(
-        err.response?.data?.message ||
-        (err.response?.data?.details ? JSON.stringify(err.response.data.details) : 'Error fetching inscription details: ' + err.message)
-      );
+      toast.error('Error', {
+        description: err.response?.data?.message || 'Inscription not found.',
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingDetails(false);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-teal-50 to-blue-50 p-6">
-      <header className="w-full max-w-5xl mb-8">
+      <header className="w-full max-w-5xl mb-8 flex justify-between items-center">
         <h1 className="text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">
           Bitcoin Ordinals Inscriber
         </h1>
+        <div className="flex space-x-2">
+          <Button
+            onClick={connectWallet}
+            disabled={isWalletConnected || isLoadingConnect}
+            className={`text-sm bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+              isWalletConnected || isLoadingConnect ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {isLoadingConnect ? 'Connecting...' : isWalletConnected ? `${walletAddress?.slice(0, 4)}...${walletAddress?.slice(-4)}` : 'Connect Wallet'}
+          </Button>
+          {isWalletConnected && (
+            <Button
+              onClick={disconnectWallet}
+              variant="destructive"
+              className="text-sm bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105"
+            >
+              Disconnect
+            </Button>
+          )}
+        </div>
       </header>
 
-      <main className="w-full max-w-5xl space-y-8">
-        {/* Wallet Connection */}
-        <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-800">Wallet Connection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-              <Button
-                onClick={connectWallet}
-                disabled={isWalletConnected || isLoading}
-                className={`w-full sm:w-auto bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-                  isWalletConnected || isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isWalletConnected ? `Connected: ${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}` : isLoading ? 'Connecting...' : 'Connect UniSat Wallet'}
-              </Button>
-              {isWalletConnected && (
+      <main className="w-full max-w-5xl space-y-6">
+        {/* Create Inscription and Commit Result */}
+        <div className="flex flex-col md:flex-row md:space-x-6 space-y-6 md:space-y-0">
+          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 md:w-1/2">
+            <CardHeader className="p-2">
+              <CardTitle className="text-xl font-bold text-gray-800">Create Inscription</CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="file" className="text-sm font-medium text-gray-700">Choose File</label>
+                  <Input
+                    id="file"
+                    type="file"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="recipient" className="text-sm font-medium text-gray-700">Recipient Address</label>
+                  <Input
+                    id="recipient"
+                    type="text"
+                    placeholder="Enter mainnet address (bc1q...)"
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                    className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="feeRate" className="text-sm font-medium text-gray-700">Fee Rate (sats/vbyte)</label>
+                  <Input
+                    id="feeRate"
+                    type="number"
+                    placeholder="e.g., 10"
+                    value={feeRate}
+                    onChange={(e) => setFeeRate(e.target.value)}
+                    className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
+                    required
+                  />
+                </div>
                 <Button
-                  onClick={disconnectWallet}
-                  variant="destructive"
-                  className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                  type="submit"
+                  disabled={isLoadingSubmit}
+                  className={`w-full bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+                    isLoadingSubmit ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Disconnect Wallet
+                  {isLoadingSubmit ? 'Creating...' : 'Create Commit'}
                 </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </form>
+            </CardContent>
+          </Card>
 
-        {/* Create Inscription */}
-        <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-800">Create Inscription</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="file" className="text-sm font-medium text-gray-700">Choose File</label>
-                <Input
-                  id="file"
-                  type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="recipient" className="text-sm font-medium text-gray-700">Recipient Address</label>
-                <Input
-                  id="recipient"
-                  type="text"
-                  placeholder="Enter mainnet address (bc1q...)"
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                  className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="feeRate" className="text-sm font-medium text-gray-700">Fee Rate (sats/vbyte)</label>
-                <Input
-                  id="feeRate"
-                  type="number"
-                  placeholder="e.g., 10"
-                  value={feeRate}
-                  onChange={(e) => setFeeRate(e.target.value)}
-                  className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isLoading ? 'Creating...' : 'Create Commit'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 md:w-1/2">
+            <CardHeader className="p-2">
+              <CardTitle className="text-xl font-bold text-gray-800">Create Commit Result</CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 text-sm text-gray-700">
+              {response ? (
+                <>
+                  <span><strong>Inscription ID:</strong> {response.inscription_id}</span><br />
+                  <span><strong>File Size:</strong> {response.file_size_in_bytes} bytes</span><br />
+                  <span><strong>Payment Address:</strong> {response.payment_address}</span><br />
+                  <span><strong>Recipient Address:</strong> {response.recipient_address}</span><br />
+                  <span><strong>Sender Address:</strong> {response.sender_address}</span><br />
+                  <span><strong>Amount (sats):</strong> {response.required_amount_in_sats}</span><br />
+                  <span><strong>Status:</strong> {response.commmit_creation_successful ? 'Created' : 'Pending'}</span><br />
+                  <Button
+                    onClick={checkPaymentStatus}
+                    disabled={isLoadingPaymentStatus}
+                    className={`mt-4 w-full bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+                      isLoadingPaymentStatus ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {isLoadingPaymentStatus ? 'Checking...' : 'Check Payment Status'}
+                  </Button>
+                </>
+              ) : (
+                <span>No commit result yet.</span>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Payment */}
         {response && (
           <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Payment</CardTitle>
+            <CardHeader className="p-2">
+              <CardTitle className="text-xl font-bold text-gray-800">Payment</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4 break-all">
+            <CardContent className="p-2">
+              <p className="text-gray-600 mb-4 break-all text-sm">
                 Send <span className="font-semibold">{response.required_amount_in_sats}</span> sats to{' '}
                 <span className="font-mono text-sm">{response.payment_address}</span>
               </p>
               <Button
                 onClick={payNow}
-                disabled={isLoading}
-                className={`w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                disabled={isLoadingPay}
+                className={`w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+                  isLoadingPay ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
-                {isLoading ? 'Processing...' : 'Pay Now'}
+                {isLoadingPay ? 'Processing...' : 'Pay Now'}
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button
-            onClick={fetchStats}
-            disabled={isLoading}
-            className={`bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isLoading ? 'Loading...' : 'Fetch Stats'}
-          </Button>
-          <Button
-            onClick={checkPaymentStatus}
-            disabled={isLoading}
-            className={`bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isLoading ? 'Checking...' : 'Check Payment Status'}
-          </Button>
-          <Button
-            onClick={createReveal}
-            disabled={isLoading}
-            className={`bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isLoading ? 'Creating...' : 'Create Reveal'}
-          </Button>
-          <Button
-            onClick={broadcastReveal}
-            disabled={isLoading}
-            className={`bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isLoading ? 'Broadcasting...' : 'Broadcast Reveal'}
-          </Button>
+        {/* Stats and Get Inscription Details */}
+        <div className="flex flex-col md:flex-row md:space-x-6 space-y-6 md:space-y-0">
+          {stats && (
+            <Card className="p-4 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 md:w-1/2">
+              <CardHeader className="p-2 flex justify-between items-center">
+                <CardTitle className="text-lg font-bold text-gray-800">Stats</CardTitle>
+                <Button
+                  onClick={fetchStats}
+                  disabled={isLoadingStats}
+                  className={`text-sm bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-1 px-3 rounded-lg transition-all duration-300 ${
+                    isLoadingStats ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {isLoadingStats ? 'Loading...' : 'Refresh'}
+                </Button>
+              </CardHeader>
+              <CardContent className="p-2 text-sm text-gray-700">
+                <span><strong>Total Inscriptions:</strong> {stats.total_inscriptions}</span><br />
+                <span><strong>Total Pending:</strong> {stats.total_pending}</span><br />
+                <span><strong>Total Broadcasted:</strong> {stats.total_broadcasted}</span><br />
+                <span><strong>Total Confirmed:</strong> {stats.total_confirmed}</span>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="p-4 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 md:w-1/2">
+            <CardHeader className="p-2">
+              <CardTitle className="text-lg font-bold text-gray-800">Get Inscription Details</CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                <Input
+                  id="inscriptionId"
+                  type="text"
+                  placeholder="Enter Inscription ID"
+                  value={inscriptionIdInput}
+                  onChange={(e) => setInscriptionIdInput(e.target.value)}
+                  className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white text-sm"
+                />
+                <Button
+                  onClick={getInscriptionDetails}
+                  disabled={isLoadingDetails}
+                  className={`w-full sm:w-auto bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+                    isLoadingDetails ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {isLoadingDetails ? 'Fetching...' : 'Get Details'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Get Inscription Details */}
-        <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-800">Get Inscription Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-              <Input
-                id="inscriptionId"
-                type="text"
-                placeholder="Enter Inscription ID"
-                value={inscriptionIdInput}
-                onChange={(e) => setInscriptionIdInput(e.target.value)}
-                className="border-gray-300 focus:ring-teal-500 focus:border-teal-500 rounded-lg bg-white"
-              />
-              <Button
-                onClick={getInscriptionDetails}
-                disabled={isLoading}
-                className={`w-full sm:w-auto bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isLoading ? 'Fetching...' : 'Get Details'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Error */}
-        {error && (
-          <Alert variant="destructive" className="bg-red-50 border-red-200 p-4 rounded-lg">
-            <AlertDescription className="text-red-600 font-medium">{error}</AlertDescription>
-          </Alert>
+        {/* Payment Status Dialog */}
+        {paymentStatus && (
+          <AlertDialog open={showPaymentStatusDialog} onOpenChange={setShowPaymentStatusDialog}>
+            <AlertDialogContent className="bg-white">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-gray-800">Payment Status</AlertDialogTitle>
+              </AlertDialogHeader>
+              <AlertDialogDescription className="text-sm text-gray-800">
+                <span><strong>Paid:</strong> {paymentStatus.is_paid ? 'Yes' : 'No'}</span><br />
+                {paymentStatus.payment_utxo ? (
+                  <>
+                    <span><strong>Transaction ID:</strong> {paymentStatus.payment_utxo.txid}</span><br />
+                    <span><strong>Confirmations:</strong> {paymentStatus.payment_utxo.confirmations}</span><br />
+                    <span><strong>Amount:</strong> {paymentStatus.payment_utxo.amount} BTC</span>
+                  </>
+                ) : (
+                  <span><strong>Error:</strong> {paymentStatus.error_details?.errMsg || 'No payment UTXO found'}</span>
+                )}
+              </AlertDialogDescription>
+              <AlertDialogFooter>
+                <AlertDialogAction className="bg-teal-500 hover:bg-teal-600 text-white">Close</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
 
-        {/* Loading */}
-        {isLoading && (
+        {/* Inscription Details Dialog */}
+        {inscriptionDetails && (
+          <AlertDialog open={showInscriptionDetailsDialog} onOpenChange={setShowInscriptionDetailsDialog}>
+            <AlertDialogContent className="bg-white">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-gray-800">Inscription Details</AlertDialogTitle>
+              </AlertDialogHeader>
+              <AlertDialogDescription className="text-sm text-gray-800">
+                <span><strong>ID:</strong> {inscriptionDetails.id}</span><br />
+                <span><strong>Payment Address:</strong> {inscriptionDetails.payment_address}</span><br />
+                <span><strong>Amount (sats):</strong> {inscriptionDetails.required_amount_in_sats}</span><br />
+                <span><strong>File Size:</strong> {inscriptionDetails.file_size_in_bytes} bytes</span><br />
+                <span><strong>Status:</strong> {inscriptionDetails.status}</span><br />
+                <span><strong>Commit TX ID:</strong> {inscriptionDetails.commit_tx_id}</span><br />
+                <span><strong>Reveal TX ID:</strong> {inscriptionDetails.reveal_tx_id}</span><br />
+                <span><strong>Sender Address:</strong> {inscriptionDetails.sender_address}</span><br />
+                <span><strong>Recipient Address:</strong> {inscriptionDetails.recipient_address}</span><br />
+                <span><strong>Created At:</strong> {new Date(inscriptionDetails.created_at).toLocaleString()}</span>
+              </AlertDialogDescription>
+              <AlertDialogFooter>
+                <AlertDialogAction className="bg-teal-500 hover:bg-teal-600 text-white">Close</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* Loading Spinner */}
+        {isAnyLoading && (
           <div className="flex justify-center">
             <Spinner className="h-10 w-10" />
           </div>
         )}
 
-        {/* Results */}
-        {response && (
-          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Create Commit Result</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm font-mono text-gray-800 overflow-x-auto">
-                {JSON.stringify(response, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
-        {stats && (
-          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Stats</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm font-mono text-gray-800 overflow-x-auto">
-                {JSON.stringify(stats, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
-        {paymentStatus && (
-          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Payment Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm font-mono text-gray-800 overflow-x-auto">
-                {JSON.stringify(paymentStatus, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
-        {revealResult && (
-          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Create Reveal Result</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm font-mono text-gray-800 overflow-x-auto">
-                {JSON.stringify(revealResult, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
-        {broadcastRevealResult && (
-          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Broadcast Reveal Result</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm font-mono text-gray-800 overflow-x-auto">
-                {JSON.stringify(broadcastRevealResult, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
-        {inscriptionDetails && (
-          <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Inscription Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm font-mono text-gray-800 overflow-x-auto">
-                {JSON.stringify(inscriptionDetails, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
+        {/* Wallet Inscriptions */}
         {walletInscriptions.length > 0 && (
           <Card className="p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 border-0">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Wallet Inscriptions</CardTitle>
+            <CardHeader className="p-2">
+              <CardTitle className="text-xl font-bold text-gray-800">Wallet Inscriptions</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-teal-50 hover:bg-teal-50">
-                    <TableHead className="text-gray-800 font-semibold">ID</TableHead>
-                    <TableHead className="text-gray-800 font-semibold">Recipient Address</TableHead>
-                    <TableHead className="text-gray-800 font-semibold">Payment Address</TableHead>
-                    <TableHead className="text-gray-800 font-semibold">Amount (sats)</TableHead>
-                    <TableHead className="text-gray-800 font-semibold">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {walletInscriptions.map((inscription, index) => (
-                    <TableRow key={index} className="hover:bg-gray-50 transition duration-200">
-                      <TableCell>{inscription.inscription_id}</TableCell>
-                      <TableCell className="font-mono text-xs break-all">{inscription.recipient_address}</TableCell>
-                      <TableCell className="font-mono text-xs break-all">{inscription.payment_address}</TableCell>
-                      <TableCell>{inscription.required_amount_in_sats}</TableCell>
-                      <TableCell>{inscription.commit_creation_successful ? 'Created' : 'Pending'}</TableCell>
+            <CardContent className="p-2">
+              <div className="max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-teal-50 hover:bg-teal-50">
+                      <TableHead className="text-gray-800 font-semibold">ID</TableHead>
+                      <TableHead className="text-gray-800 font-semibold">Recipient Address</TableHead>
+                      <TableHead className="text-gray-800 font-semibold">Payment Address</TableHead>
+                      <TableHead className="text-gray-800 font-semibold">Amount (sats)</TableHead>
+                      <TableHead className="text-gray-800 font-semibold">Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {walletInscriptions.map((inscription, index) => (
+                      <TableRow key={index} className="hover:bg-gray-50 transition duration-200">
+                        <TableCell>{inscription.id}</TableCell>
+                        <TableCell className="font-mono text-xs break-all">{inscription.recipient_address}</TableCell>
+                        <TableCell className="font-mono text-xs break-all">{inscription.payment_address}</TableCell>
+                        <TableCell>{inscription.required_amount_in_sats}</TableCell>
+                        <TableCell>{inscription.commit_creation_successful ? 'Created' : 'Pending'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         )}

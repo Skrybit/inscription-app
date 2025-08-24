@@ -5,8 +5,6 @@ export const API_CONSTANTS = {
       PAYMENT_STATUS: '/payments/status',
       GET_BY_ID: (id: string) => `/inscriptions/${id}`,
       GET_SENDER: (sender: string) => `/inscriptions/sender/${sender}`,
-      CREATE_REVEAL: '/inscriptions/create-reveal',
-      BROADCAST_REVEAL: '/transactions/broadcast-reveal',
       STATS: '/inscriptions/stats',
     },
     AUTH: {
@@ -22,10 +20,8 @@ export const API_CONSTANTS = {
     INSCRIPTIONS: {
       CREATE_COMMIT: '/api/inscriptions/create-commit',
       PAYMENT_STATUS: '/api/inscriptions/payment-status',
-      GET_BY_ID: (id: string) => `/api/inscriptions/${id}`, // Updated to dynamic route
-      GET_SENDER: '/api/inscriptions/get-sender',
-      CREATE_REVEAL: '/api/inscriptions/create-reveal',
-      BROADCAST_REVEAL: '/api/inscriptions/broadcast-reveal',
+      GET_BY_ID: (id: string) => `/api/inscriptions/${id}`,
+      GET_SENDER: (sender: string) => `/api/inscriptions/get-sender?address=${sender}`,
       STATS: '/api/inscriptions/stats',
     },
     AUTH: {

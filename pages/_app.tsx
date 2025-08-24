@@ -1,16 +1,27 @@
 import { useEffect } from 'react';
 import Cookies from 'js-cookie';
 import '../styles/globals.css';
+import { Toaster } from '@/src/components/ui/sonner';
 
 function MyApp({ Component, pageProps }) {
   useEffect(() => {
-    Cookies.set('authToken', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjcsImVtYWlsIjoibml0aGluQHNrcnliaXQuaW8iLCJpYXQiOjE3NTUzNzAxNTEsImV4cCI6MTc1Nzk2MjE1MX0.BkkcH4NH0YZ3Y8R37OiBp6g55-BqUK0AYWoOML-mnC4', {
-      sameSite: 'strict',
-      secure: false, // Set to true in production with HTTPS
-    });
+    const token = process.env.NEXT_PUBLIC_AUTH_TOKEN;
+    if (token) {
+      Cookies.set('authToken', token, {
+        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    } else {
+      console.error('No NEXT_PUBLIC_AUTH_TOKEN found in environment variables');
+    }
   }, []);
 
-  return <Component {...pageProps} />;
+  return (
+    <>
+      <Component {...pageProps} />
+      <Toaster />
+    </>
+  );
 }
 
 export default MyApp;
