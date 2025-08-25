@@ -35,7 +35,7 @@ export const createCustomAxiosInstance = (options: AxiosInstanceOptions): AxiosI
         } else {
           console.log('No auth token found in headers');
         }
-        console.log('Request headers:', config.headers);
+        // console.log('Request headers:', config.headers);
         return config;
       } catch (error) {
         console.error('Error accessing auth token:', error);
