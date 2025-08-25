@@ -7,7 +7,7 @@ interface AxiosInstanceOptions {
 }
 
 export const createCustomAxiosInstance = (options: AxiosInstanceOptions): AxiosInstance => {
-  const { baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.skrybit.io', multipart = false } = options;
+  const { baseURL = 'https://api.skrybit.io', multipart = false } = options;
   const instance = axios.create({
     baseURL,
     headers: {

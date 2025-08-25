@@ -1,7 +1,11 @@
-// src/services/auth.ts
 import Cookies from 'js-cookie';
 
 export const initializeAuthToken = () => {
-  // For testing, set the provided token
-  Cookies.set('authToken', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjcsImVtYWlsIjoibml0aGluQHNrcnliaXQuaW8iLCJpYXQiOjE3NTUzNzAxNTEsImV4cCI6MTc1Nzk2MjE1MX0.BkkcH4NH0YZ3Y8R37OiBp6g55-BqUK0AYWoOML-mnC4');
+  const token = process.env.NEXT_PUBLIC_AUTH_TOKEN;
+  if (token) {
+    console.log('Initializing auth token from environment variable');
+    Cookies.set('authToken', token);
+  } else {
+    console.warn('No auth token found in environment variable NEXT_PUBLIC_AUTH_TOKEN');
+  }
 };
