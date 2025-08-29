@@ -63,7 +63,7 @@ function PaymentStatusForm({ senderAddress, setError, setSuccess, commitResponse
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'Mozilla/5.0 (compatible; Bruno)',
-          // Add API key if required (e.g., 'Authorization': 'Bearer YOUR_API_KEY')
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
       });
       setStatus({ ...payload, ...response.data });

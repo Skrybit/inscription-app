@@ -1,6 +1,10 @@
 function InscriptionsList({ inscriptions }) {
   console.log('Rendering InscriptionsList, inscriptions:', inscriptions);
 
+  if (!Array.isArray(inscriptions)) {
+    return <p className="text-gray-600">No inscriptions found or invalid data.</p>;
+  }
+
   return (
     <div className="card">
       <h2 className="text-xl font-semibold text-gray-800 mb-4">Your Inscriptions</h2>

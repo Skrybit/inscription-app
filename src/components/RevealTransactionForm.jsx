@@ -30,8 +30,8 @@ function RevealTransactionForm({ setError, setSuccess, fetchInscriptions }) {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)', // Match Bruno's configuration
-          // Add API key if required (e.g., 'Authorization': 'Bearer YOUR_API_KEY')
+          'User-Agent': 'Mozilla/5.0 (compatible; Bruno)',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
       });
       setSuccess('Reveal transaction created! TX Hex: ' + response.data.reveal_tx_hex);

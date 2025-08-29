@@ -37,38 +37,33 @@ function App() {
     setAccount(null);
     setInscriptions([]);
     setCommitResponse(null);
-    setSuccess('Wallet disconnected successfully! If reconnecting without approval persists, clear UniSat permissions in the wallet settings or use incognito mode.');
-    // Clear all browser storage to reset UniSat session
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-      // Clear cookies
-      document.cookie.split(";").forEach(c => {
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-      });
-      console.log('Cleared localStorage, sessionStorage, and cookies');
-      // Force page reload to reset UniSat session
-      window.location.reload();
-    } catch (e) {
-      console.error('Error clearing browser storage:', e.message);
-      setError('Failed to clear wallet session: ' + e.message);
-    }
+    window.unisat.disconnect();
+    setSuccess('Wallet disconnected successfully!');
   };
 
   const fetchInscriptions = async () => {
     if (!account) return;
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/sender/${account}`);
-      setInscriptions(response.data);
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/sender/${account}`, {
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+        },
+      });
+      setInscriptions(Array.isArray(response.data) ? response.data : []);
       setError(null);
     } catch (e) {
       setError('Failed to fetch inscriptions: ' + (e.response?.data?.error || e.message));
+      setInscriptions([]);
     }
   };
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/stats`);
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/inscriptions/stats`, {
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+        },
+      });
       setStats(response.data);
       setError(null);
     } catch (e) {

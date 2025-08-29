@@ -10,16 +10,14 @@ function Toast({ message, type, onClose }) {
 
   return (
     <div
-      className={`fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white ${
-        type === 'error' ? 'bg-red-500' : 'bg-green-500'
+      className={`fixed top-4 right-4 p-4 rounded-lg shadow-md flex items-center justify-between space-x-4 ${
+        type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
       }`}
     >
-      <div className="flex items-center space-x-2">
-        <span>{message}</span>
-        <button onClick={onClose} className="text-white font-bold">
-          ×
-        </button>
-      </div>
+      <p className="flex-1">{message}</p>
+      <button onClick={onClose} className="text-white font-bold hover:text-gray-200">
+        <sup>x</sup>
+      </button>
     </div>
   );
 }

@@ -76,7 +76,7 @@ function CreateCommitForm({ senderAddress, setError, setSuccess, fetchInscriptio
           'Accept': 'application/json',
           'Content-Type': 'multipart/form-data',
           'User-Agent': 'Mozilla/5.0 (compatible; Bruno)',
-          // Add API key if required (e.g., 'Authorization': 'Bearer YOUR_API_KEY')
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
       });
       setSuccess(`Commit created successfully! Inscription ID: ${response.data.inscription_id}`);
