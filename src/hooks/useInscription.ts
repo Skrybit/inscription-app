@@ -20,6 +20,7 @@ export function useInscription() {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [showPaymentStatusDialog, setShowPaymentStatusDialog] = useState(false);
   const [showInscriptionDetailsDialog, setShowInscriptionDetailsDialog] = useState(false);
+  const [isPolling, setIsPolling] = useState(false); // Added for compatibility
 
   const fetchStats = useCallback(async () => {
     console.log('Fetching stats at:', new Date().toISOString());
@@ -43,7 +44,6 @@ export function useInscription() {
     }
   }, []);
 
-  // Fetch stats on mount
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
@@ -169,10 +169,9 @@ export function useInscription() {
       toast.success('Success', {
         description: `Payment sent successfully with fee rate ${feeRateNum} sats/vbyte. TXID: ${txid}`,
       });
-      // Attempt to fetch transaction details for verification
       try {
         const txDetails = await window.unisat.getTransaction?.(txid);
-        console.log('Transaction details:', txDetails || 'No transaction details available');
+        // console.log('Transaction details:', txDetails || 'No transaction details available');
       } catch (err: any) {
         console.warn('Could not fetch transaction details for txid:', txid, 'Error:', err.message);
       }
@@ -275,6 +274,8 @@ export function useInscription() {
     inscriptionDetails,
     inscriptionIdInput,
     setInscriptionIdInput,
+    isPolling,
+    setIsPolling,
     isLoadingSubmit,
     isLoadingPay,
     isLoadingStats,

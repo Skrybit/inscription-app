@@ -15,6 +15,11 @@ export const API_CONSTANTS = {
       REFRESH_TOKEN: '/auth/refresh',
       VERIFY: '/auth/verify',
     },
+    BRC20: {
+      DEPLOY: '/brc20/deploy',
+      CHECK_TICKER: (ticker: string) => `/brc20/check-ticker/${ticker}`,
+      MINT: '/brc20/mint',
+    },
   },
   PROXY: {
     INSCRIPTIONS: {
@@ -31,6 +36,11 @@ export const API_CONSTANTS = {
       NEW_TOKEN: '/api/auth/new-token',
       REFRESH_TOKEN: '/api/auth/refresh-token',
       VERIFY: '/api/auth/verify',
+    },
+    BRC20: {
+      DEPLOY: 'https://api.skrybit.io/brc20/deploy',
+      CHECK_TICKER: (ticker: string) => `https://api.skrybit.io/brc20/check-ticker/${ticker}`,
+      MINT: 'https://api.skrybit.io/brc20/mint',
     },
   },
 } as const;
