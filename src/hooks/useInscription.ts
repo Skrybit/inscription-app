@@ -171,7 +171,7 @@ export function useInscription() {
       });
       try {
         const txDetails = await window.unisat.getTransaction?.(txid);
-        console.log('Transaction details:', txDetails || 'No transaction details available');
+        // console.log('Transaction details:', txDetails || 'No transaction details available');
       } catch (err: any) {
         console.warn('Could not fetch transaction details for txid:', txid, 'Error:', err.message);
       }

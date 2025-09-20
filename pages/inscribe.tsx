@@ -158,9 +158,9 @@ export default function InscribePage() {
           onClick={() => setActiveTab('inscription')}
           className={`w-full sm:w-auto bg-gradient-to-r ${
             activeTab === 'inscription'
-              ? 'from-teal-600 to-blue-600'
-              : 'from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600'
-          } text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105`}
+              ? 'from-teal-600 to-blue-600 border-b-4 border-teal-800 shadow-lg scale-105'
+              : 'from-teal-400 to-blue-400 hover:from-teal-500 hover:to-blue-500 border-b-2 border-teal-600'
+          } text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50`}
         >
           Create Inscription
         </Button>
@@ -168,9 +168,9 @@ export default function InscribePage() {
           onClick={() => setActiveTab('brc20')}
           className={`w-full sm:w-auto bg-gradient-to-r ${
             activeTab === 'brc20'
-              ? 'from-teal-600 to-blue-600'
-              : 'from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600'
-          } text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105`}
+              ? 'from-teal-600 to-blue-600 border-b-4 border-teal-800 shadow-lg scale-105'
+              : 'from-teal-400 to-blue-400 hover:from-teal-500 hover:to-blue-500 border-b-2 border-teal-600'
+          } text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50`}
         >
           BRC20
         </Button>
